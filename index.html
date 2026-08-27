@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Passwordgenerator</title>
+<meta name="description" content="Sicherer Passwort- und Passphrase-Generator – läuft komplett lokal im Browser.">
+<style>
+  :root{
+    --bg-1:#0a0c12;
+    --bg-2:#131725;
+    --card:#161a29;
+    --card-2:#1c2135;
+    --border:rgba(255,255,255,0.08);
+    --border-strong:rgba(255,255,255,0.14);
+    --text:#eef0f6;
+    --text-dim:#9aa1b5;
+    --text-faint:#666d82;
+    --accent:#8b7bff;
+    --accent-2:#22d3ee;
+    --accent-soft:rgba(139,123,255,0.15);
+    --letter:#f4f5f9;
+    --digit:#5b9dff;
+    --special:#ff6b81;
+    --danger:#ff6b6b;
+    --success:#3ddc97;
+    --radius:16px;
+    --radius-sm:10px;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1100px 600px at 15% -10%, rgba(139,123,255,0.16), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(34,211,238,0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg-1), var(--bg-2) 60%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;
+    justify-content:center;
+    padding:40px 16px 60px;
+  }
+  .app{width:100%;max-width:640px;}
+  header{text-align:center;margin-bottom:22px;}
+  header h1{
+    font-size:1.7rem;
+    margin:0 0 4px;
+    font-weight:700;
+    letter-spacing:-0.02em;
+    background:linear-gradient(90deg, var(--text), var(--accent-2));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  header p{margin:0;color:var(--text-dim);font-size:0.92rem;}
+
+  .card{
+    background:linear-gradient(180deg, var(--card), var(--card-2));
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px;
+    box-shadow:0 20px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  .tabs{
+    display:flex;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:4px;
+    margin-bottom:18px;
+  }
+  .tab{
+    flex:1;
+    background:transparent;
+    border:none;
+    color:var(--text-dim);
+    font-size:0.95rem;
+    font-weight:600;
+    padding:9px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:all .18s ease;
+  }
+  .tab.active{
+    background:linear-gradient(90deg, var(--accent), #6f5bff);
+    color:#fff;
+    box-shadow:0 6px 16px -6px rgba(139,123,255,0.7);
+  }
+  .tab:not(.active):hover{color:var(--text);}
+
+  .output-row{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .output{
+    flex:1;
+    min-width:0;
+    background:rgba(0,0,0,0.28);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:16px 14px;
+    font-family:"SF Mono",SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:1.18rem;
+    letter-spacing:0.5px;
+    word-break:break-all;
+    line-height:1.5;
+    min-height:1.6em;
+    display:flex;
+    flex-wrap:wrap;
+    align-content:center;
+    align-items:center;
+  }
+  .output.empty{color:var(--danger);font-family:inherit;font-size:0.9rem;letter-spacing:normal;}
+  .c-letter{color:var(--letter);}
+  .c-digit{color:var(--digit);font-weight:600;}
+  .c-special{color:var(--special);font-weight:600;}
+
+  .icon-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:48px;
+    height:48px;
+    flex:0 0 48px;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    color:var(--text);
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .icon-btn:hover{background:rgba(255,255,255,0.1);border-color:var(--border-strong);}
+  .icon-btn:active{transform:scale(0.94);}
+  .icon-btn svg{width:20px;height:20px;}
+  .icon-btn.copy-ok{background:rgba(61,220,151,0.18);border-color:rgba(61,220,151,0.5);color:var(--success);}
+  #regenBtn svg{transition:transform .35s ease;}
+  #regenBtn.spin svg{transform:rotate(320deg);}
+
+  .strength{display:flex;align-items:center;gap:10px;margin:4px 0 20px;}
+  .strength-bar{flex:1;height:6px;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden;}
+  .strength-fill{height:100%;width:0%;border-radius:999px;transition:width .25s ease, background .25s ease;}
+  .strength-label{font-size:0.78rem;color:var(--text-dim);white-space:nowrap;min-width:auto;}
+
+  .panel{display:flex;flex-direction:column;gap:18px;}
+  .panel.hidden{display:none;}
+
+  .row{display:flex;flex-direction:column;gap:8px;}
+  .row-head{display:flex;justify-content:space-between;align-items:center;}
+  .row-head label{font-size:0.88rem;color:var(--text-dim);font-weight:600;}
+  .row-head .val{font-size:0.88rem;color:var(--text);font-weight:700;font-variant-numeric:tabular-nums;}
+
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    height:6px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.1);
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg, var(--accent), var(--accent-2));
+    cursor:pointer;border:2px solid #fff2;
+    box-shadow:0 2px 8px rgba(139,123,255,0.6);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg, var(--accent), var(--accent-2));
+    cursor:pointer;border:2px solid #fff2;
+  }
+
+  .checks{display:flex;flex-wrap:wrap;gap:10px;}
+  .check{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--border);
+    padding:9px 12px;
+    border-radius:var(--radius-sm);
+    cursor:pointer;
+    font-size:0.9rem;
+    user-select:none;
+    transition:all .15s ease;
+    flex:1 1 auto;
+    min-width:110px;
+    justify-content:center;
+  }
+  .check:hover{border-color:var(--border-strong);}
+  .check input{accent-color:var(--accent);width:16px;height:16px;cursor:pointer;}
+  .check.checked{background:var(--accent-soft);border-color:rgba(139,123,255,0.5);}
+
+  .sub-panel{
+    background:rgba(0,0,0,0.18);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .sub-panel.disabled{opacity:0.4;pointer-events:none;}
+
+  .chip-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  .chip-head span.lbl{font-size:0.85rem;color:var(--text-dim);font-weight:600;}
+  .chip-actions{display:flex;gap:6px;}
+  .chip-actions button{
+    background:transparent;border:1px solid var(--border);color:var(--text-dim);
+    font-size:0.72rem;padding:4px 9px;border-radius:999px;cursor:pointer;transition:all .15s;
+  }
+  .chip-actions button:hover{color:var(--text);border-color:var(--border-strong);}
+
+  .chip-grid{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{
+    width:34px;height:34px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text-faint);
+    font-family:"SF Mono",Consolas,monospace;
+    font-size:0.95rem;
+    cursor:pointer;
+    transition:all .12s ease;
+  }
+  .chip:hover{border-color:var(--border-strong);color:var(--text-dim);}
+  .chip.active{
+    background:rgba(255,107,129,0.16);
+    border-color:rgba(255,107,129,0.55);
+    color:var(--special);
+  }
+  .chip-hint{font-size:0.76rem;color:var(--text-faint);line-height:1.4;}
+
+  .minmax{display:flex;gap:10px;}
+  .minmax .field{flex:1;display:flex;flex-direction:column;gap:6px;}
+  .minmax label{font-size:0.78rem;color:var(--text-dim);}
+  .minmax input[type=number]{
+    width:100%;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:0.92rem;
+    font-family:inherit;
+  }
+  .minmax input[type=number]:focus{outline:none;border-color:var(--accent);}
+
+  .toggle-row{
+    display:flex;align-items:center;justify-content:space-between;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--border);
+    padding:12px 14px;
+    border-radius:var(--radius-sm);
+  }
+  .toggle-row .t-text{display:flex;flex-direction:column;gap:2px;}
+  .toggle-row .t-text .t-title{font-size:0.9rem;font-weight:600;}
+  .toggle-row .t-text .t-desc{font-size:0.76rem;color:var(--text-faint);}
+  .switch{
+    position:relative;width:42px;height:24px;flex:0 0 42px;
+  }
+  .switch input{opacity:0;width:0;height:0;}
+  .slider-switch{
+    position:absolute;inset:0;background:rgba(255,255,255,0.12);
+    border-radius:999px;cursor:pointer;transition:.2s;
+  }
+  .slider-switch:before{
+    content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.2s;
+  }
+  .switch input:checked + .slider-switch{background:linear-gradient(90deg, var(--accent), var(--accent-2));}
+  .switch input:checked + .slider-switch:before{transform:translateX(18px);}
+
+  select.sep-select{
+    width:100%;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:1rem;
+    font-family:"SF Mono",Consolas,monospace;
+  }
+
+  .validation-msg{
+    font-size:0.78rem;
+    color:var(--danger);
+    background:rgba(255,107,107,0.1);
+    border:1px solid rgba(255,107,107,0.3);
+    padding:8px 12px;
+    border-radius:8px;
+    display:none;
+  }
+  .validation-msg.show{display:block;}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);
+    background:var(--card-2);border:1px solid var(--border-strong);
+    color:var(--text);padding:10px 18px;border-radius:999px;
+    font-size:0.85rem;box-shadow:0 10px 30px -8px rgba(0,0,0,0.6);
+    opacity:0;pointer-events:none;transition:all .25s ease;
+    z-index:50;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+
+  footer{margin-top:22px;text-align:center;}
+  footer p{color:var(--text-faint);font-size:0.76rem;line-height:1.6;margin:0;}
+  footer a{color:var(--text-dim);}
+
+  @media (max-width:480px){
+    .minmax{flex-direction:row;}
+    .output{font-size:1.02rem;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Passwordgenerator</h1>
+    <p>Sichere Passwörter &amp; Passphrasen – 100% lokal im Browser generiert</p>
+  </header>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" data-tab="password" id="tabPassword">Passwort</button>
+      <button class="tab" data-tab="passphrase" id="tabPassphrase">Passphrase</button>
+    </div>
+
+    <div class="output-row">
+      <div id="output" class="output" aria-live="polite"></div>
+      <button class="icon-btn" id="regenBtn" title="Neu generieren" aria-label="Neu generieren">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7"></path>
+          <path d="M21 3v6h-6"></path>
+        </svg>
+      </button>
+      <button class="icon-btn" id="copyBtn" title="In Zwischenablage kopieren" aria-label="Kopieren">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="strength">
+      <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+      <span class="strength-label" id="strengthLabel">–</span>
+    </div>
+
+    <div class="validation-msg" id="validationMsg"></div>
+
+    <!-- PASSWORT PANEL -->
+    <div class="panel" id="passwordPanel">
+      <div class="row">
+        <div class="row-head">
+          <label for="lenRange">Länge</label>
+          <span class="val" id="lenVal">16</span>
+        </div>
+        <input type="range" id="lenRange" min="4" max="128" value="16">
+      </div>
+
+      <div class="checks">
+        <label class="check checked"><input type="checkbox" id="optUpper" checked> A–Z</label>
+        <label class="check checked"><input type="checkbox" id="optLower" checked> a–z</label>
+        <label class="check checked"><input type="checkbox" id="optDigits" checked> 0–9</label>
+        <label class="check checked"><input type="checkbox" id="optSpecial" checked> Sonderzeichen</label>
+      </div>
+
+      <div class="sub-panel" id="specialSubPanel">
+        <div class="chip-head">
+          <span class="lbl">Erlaubte Sonderzeichen</span>
+          <div class="chip-actions">
+            <button type="button" id="specAll">Alle</button>
+            <button type="button" id="specNone">Keine</button>
+            <button type="button" id="specDefault">Standard</button>
+          </div>
+        </div>
+        <div class="chip-grid" id="specGrid"></div>
+        <div class="chip-hint">Anführungszeichen, Backtick und Backslash sind standardmäßig abgewählt, da sie in manchen Systemen (Shell, CSV, JSON) Probleme machen können. Du kannst sie über „Alle“ trotzdem aktivieren.</div>
+      </div>
+
+      <div class="sub-panel" id="digitMinMaxPanel">
+        <span class="lbl chip-head-label" style="font-size:0.85rem;color:var(--text-dim);font-weight:600;">Anzahl Ziffern</span>
+        <div class="minmax">
+          <div class="field"><label for="digitMin">Minimum</label><input type="number" id="digitMin" min="0" value="1"></div>
+          <div class="field"><label for="digitMax">Maximum</label><input type="number" id="digitMax" min="0" value="5"></div>
+        </div>
+      </div>
+
+      <div class="sub-panel" id="specialMinMaxPanel">
+        <span class="lbl chip-head-label" style="font-size:0.85rem;color:var(--text-dim);font-weight:600;">Anzahl Sonderzeichen</span>
+        <div class="minmax">
+          <div class="field"><label for="specialMin">Minimum</label><input type="number" id="specialMin" min="0" value="1"></div>
+          <div class="field"><label for="specialMax">Maximum</label><input type="number" id="specialMax" min="0" value="5"></div>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div class="t-text">
+          <span class="t-title">Mehrdeutige Zeichen vermeiden</span>
+          <span class="t-desc">Schließt leicht verwechselbare Zeichen aus (0/O/o, 1/l/I/|)</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="optAmbiguous">
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- PASSPHRASE PANEL -->
+    <div class="panel hidden" id="passphrasePanel">
+      <div class="row">
+        <div class="row-head">
+          <label for="wordRange">Anzahl Wörter</label>
+          <span class="val" id="wordVal">4</span>
+        </div>
+        <input type="range" id="wordRange" min="1" max="20" value="4">
+      </div>
+
+      <div class="row">
+        <label for="sepSelect" style="font-size:0.85rem;color:var(--text-dim);font-weight:600;">Trennzeichen</label>
+        <select class="sep-select" id="sepSelect"></select>
+      </div>
+
+      <div class="toggle-row">
+        <div class="t-text">
+          <span class="t-title">Wortanfänge groß schreiben</span>
+          <span class="t-desc">Beispiel: Marry statt marry</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="optCapitalize" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="t-text">
+          <span class="t-title">Zahl einschließen</span>
+          <span class="t-desc">Hängt eine zufällige Ziffer an ein zufälliges Wort an</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="optIncludeNumber" checked>
+          <span class="slider-switch"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      Alle Passwörter werden ausschließlich lokal in deinem Browser erzeugt (Web&nbsp;Crypto API,
+      <code>crypto.getRandomValues</code>) und nirgendwo übertragen oder gespeichert.
+    </p>
+  </footer>
+</div>
+
+<div class="toast" id="toast">In Zwischenablage kopiert</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- Wortliste für Passphrasen ---------- */
+const WORDLIST = ["about","search","other","which","their","there","contact","business","online","first","would","services","these","click","service","price","people","state","email","health","world","products","music","should","product","system","policy","number","please","support","message","after","software","video","where","rights","public","books","school","through","links","review","years","order","privacy","items","company","group","under","general","research","january","reviews","program","games","could","great","united","hotel","center","store","travel","comments","report","member","details","terms","before","hotels","right","because","local","those","using","results","office","national","design","posted","internet","address","within","states","phone","shipping","reserved","subject","between","forum","family","based","black","check","special","prices","website","index","being","women","today","south","project","pages","version","section","found","sports","house","related","security","county","american","photo","members","power","while","network","computer","systems","three","total","place","download","without","access","think","north","current","posts","media","control","water","history","pictures","personal","since","guide","board","location","change","white","small","rating","children","during","return","students","shopping","account","times","sites","level","digital","profile","previous","events","hours","image","title","another","shall","property","class","still","money","quality","every","listing","content","country","private","little","visit","tools","reply","customer","december","compare","movies","include","college","value","article","provide","source","author","press","learn","around","print","course","process","stock","training","credit","point","science","advanced","sales","english","estate","select","windows","photos","thread","category","large","gallery","table","register","however","october","november","market","library","really","action","start","series","model","features","industry","human","provided","required","second","movie","forums","march","better","going","medical","friend","server","study","staff","articles","feedback","again","looking","issues","april","never","users","complete","street","topic","comment","things","working","against","standard","person","below","mobile","party","payment","login","student","programs","offers","legal","above","recent","stores","problem","memory","social","august","quote","language","story","options","rates","create","young","field","paper","single","example","girls","password","latest","question","changes","night","poker","status","browse","issue","range","building","seller","court","february","always","result","audio","light","write","offer","groups","given","files","event","release","analysis","request","making","picture","needs","possible","might","month","major","areas","future","space","cards","problems","meeting","become","interest","child","enter","share","similar","garden","schools","million","added","listed","learning","energy","delivery","popular","stories","journal","reports","welcome","central","images","notice","original","radio","until","color","council","includes","track","archive","others","format","least","society","months","safety","friends","trade","edition","messages","further","updated","having","provides","already","green","studies","close","common","drive","specific","several","living","called","short","display","limited","powered","means","director","daily","beach","natural","whether","period","planning","database","official","weather","average","window","france","region","island","record","direct","records","district","calendar","costs","style","front","update","parts","early","miles","sound","resource","present","either","document","works","material","written","federal","hosting","rules","final","tickets","thing","centre","cheap","finance","minutes","third","gifts","reading","topics","cover","usually","together","videos","percent","function","getting","global","economic","player","projects","lyrics","often","submit","germany","amount","watch","included","though","thanks","deals","various","words","linux","weight","heart","received","choose","archives","points","magazine","error","camera","clear","receive","domain","methods","chapter","makes","policies","beauty","manager","position","taken","listings","models","known","cases","simple","quick","wireless","license","friday","whole","annual","later","basic","shows","church","method","purchase","active","response","practice","hardware","figure","holiday","enough","designed","along","among","death","writing","speed","brand","discount","higher","effects","created","remember","yellow","increase","kingdom","thought","stuff","french","storage","doing","loans","shoes","entry","nature","orders","africa","summary","growth","notes","agency","monday","european","activity","although","western","income","force","overall","river","package","contents","players","engine","album","regional","supplies","started","views","plans","double","build","screen","exchange","types","lines","continue","across","benefits","needed","season","apply","someone","anything","printer","believe","effect","asked","sunday","volume","cross","anyone","mortgage","silver","inside","solution","mature","rather","weeks","addition","supply","nothing","certain","running","lower","union","jewelry","clothing","names","homepage","skills","islands","advice","career","military","rental","decision","leave","british","teens","woman","sellers","middle","cable","taking","values","division","coming","tuesday","object","lesbian","machine","length","actually","score","client","returns","capital","follow","sample","shown","saturday","england","culture","flash","choice","starting","thursday","courses","consumer","airport","foreign","artist","outside","levels","channel","letter","phones","ideas","summer","allow","degree","contract","button","releases","homes","super","matter","custom","virginia","almost","located","multiple","asian","editor","cause","focus","featured","rooms","female","primary","cancer","numbers","reason","browser","spring","answer","voice","friendly","schedule","purpose","feature","comes","police","everyone","approach","cameras","brown","physical","medicine","ratings","forms","glass","happy","smith","wanted","thank","unique","survey","prior","sport","ready","animal","sources","regular","secure","simply","evidence","station","round","favorite","option","master","valley","recently","probably","rentals","built","blood","improve","larger","networks","earth","parents","impact","transfer","kitchen","strong","carolina","wedding","hospital","ground","overview","owners","disease","italy","perfect","classic","basis","command","cities","express","award","distance","ensure","involved","extra","partners","budget","rated","guides","success","maximum","existing","quite","selected","patients","warning","horse","forward","flowers","stars","lists","owner","retail","animals","useful","directly","housing","takes","bring","catalog","searches","trying","mother","traffic","joined","input","strategy","agent","valid","modern","senior","ireland","teaching","grand","testing","trial","charge","units","instead","canadian","normal","wrote","ships","entire","leading","metal","positive","fitness","chinese","opinion","football","abstract","output","funds","greater","likely","develop","artists","guest","seems","trust","contains","session","multi","republic","vacation","century","academic","graphics","indian","expected","grade","dating","pacific","mountain","filter","mailing","vehicle","longer","consider","northern","behind","panel","floor","german","buying","match","proposed","default","require","outdoor","morning","allows","protein","plant","reported","politics","partner","authors","boards","faculty","parties","mission","string","sense","modified","released","stage","internal","goods","unless","detailed","japanese","approved","target","except","ability","maybe","moving","brands","places","pretty","spain","southern","yourself","winter","battery","youth","pressure","keywords","medium","break","purposes","dance","itself","defined","papers","playing","awards","studio","reader","virtual","device","answers","remote","external","offered","theory","enjoy","remove","surface","minimum","visual","variety","teachers","martin","manual","block","subjects","agents","repair","civil","steel","songs","fixed","wrong","hands","finally","updates","desktop","classes","sector","capacity","requires","jersey","fully","father","electric","quotes","officer","driver","respect","unknown","worth","teacher","workers","georgia","peace","campus","showing","creative","coast","benefit","progress","funding","devices","grant","agree","fiction","watches","careers","beyond","families","museum","blogs","accepted","former","complex","agencies","parent","spanish","michigan","columbia","setting","scale","stand","economy","highest","helpful","monthly","critical","frame","musical","angeles","employee","chief","gives","bottom","packages","detail","changed","heard","begin","colorado","royal","clean","switch","russian","largest","african","titles","relevant","justice","connect","bible","basket","applied","weekly","demand","suite","square","chris","advance","auction","allowed","correct","nation","selling","piece","sheet","seven","older","illinois","elements","species","cells","module","resort","facility","random","pricing","minister","motion","looks","fashion","visitors","monitor","trading","forest","calls","whose","coverage","couple","giving","chance","vision","ending","clients","actions","listen","discuss","accept","naked","clinical","sciences","markets","lowest","highly","appear","lives","currency","leather","patient","actual","stone","commerce","perhaps","persons","tests","village","accounts","amateur","factors","coffee","settings","buyer","cultural","steve","easily","poster","closed","holidays","zealand","balance","graduate","replies","initial","label","thinking","canon","league","waste","minute","provider","optional","sections","chair","fishing","effort","phase","fields","fantasy","letters","motor","context","install","shirt","apparel","crime","count","breast","johnson","quickly","dollars","websites","religion","claim","driving","surgery","patch","measures","kansas","chemical","doctor","reduce","brought","himself","enable","exercise","santa","leader","diamond","israel","servers","alone","meetings","seconds","jones","arizona","keyword","flight","congress","username","produced","italian","pocket","saint","freedom","argument","creating","drugs","joint","premium","fresh","attorney","upgrade","factor","growing","stream","hearing","eastern","auctions","therapy","entries","dates","signed","upper","serious","prime","samsung","limit","began","steps","errors","shops","efforts","informed","thoughts","creek","worked","quantity","urban","sorted","myself","tours","platform","labor","admin","nursing","defense","machines","heavy","covered","recovery","merchant","expert","protect","solid","became","orange","vehicles","prevent","theme","campaign","marine","guitar","finding","examples","saying","spirit","claims","motorola","affairs","touch","intended","towards","goals","election","suggest","branch","charges","serve","reasons","magic","mount","smart","talking","latin","avoid","manage","corner","oregon","element","birth","virus","abuse","requests","separate","quarter","tables","define","racing","facts","column","plants","faith","chain","identify","avenue","missing","domestic","sitemap","moved","houston","reach","mental","viewed","moment","extended","sequence","attack","sorry","centers","opening","damage","reserve","recipes","gamma","plastic","produce","placed","truth","counter","failure","follows","weekend","dollar","ontario","films","bridge","native","williams","movement","printing","baseball","owned","approval","draft","chart","played","contacts","jesus","readers","clubs","jackson","equal","matching","offering","shirts","profit","leaders","posters","variable","expect","parking","compared","workshop","codes","kinds","golden","teams","lighting","senate","forces","funny","brother","turned","portable","tried","returned","pattern","named","theatre","laser","earlier","sponsor","warranty","indiana","harry","objects","delete","evening","assembly","nuclear","taxes","mouse","signal","criminal","issued","brain","powerful","dream","obtained","false","flower","passed","supplied","falls","opinions","promote","stated","stats","hawaii","appears","carry","decided","covers","hello","designs","maintain","tourism","priority","clips","savings","graphic","payments","binding","brief","ended","winning","eight","straight","script","served","wants","prepared","dining","alert","dakota","queen","credits","clearly","handle","sweet","criteria","pubmed","diego","truck","behavior","enlarge","revenue","measure","changing","votes","looked","festival","ocean","flights","experts","signs","depth","whatever","logged","laptop","vintage","train","exactly","explore","maryland","concept","nearly","eligible","checkout","reality","forgot","handling","origin","gaming","feeds","billion","scotland","faster","bought","nations","route","followed","broken","alaska","battle","anime","speak","protocol","query","equity","speech","rural","shared","sounds","judge","bytes","forced","fight","height","speaker","filed","obtain","offices","designer","remain","managed","failed","marriage","korea","banks","secret","leads","negative","toronto","theater","springs","missouri","perform","healthy","assets","injury","joseph","ministry","drivers","lawyer","figures","married","proposal","sharing","portal","waiting","birthday","gratis","banking","toward","slightly","assist","conduct","lingerie","calling","serving","profiles","comics","matters","houses","postal","controls","breaking","combined","ultimate","wales","minor","finish","noted","reduced","physics","spent","extreme","samples","davis","reviewed","forecast","removed","helps","singles","cycle","amounts","contain","accuracy","sleep","pharmacy","creation","static","scene","hunter","crystal","famous","writer","chairman","violence","oklahoma","speakers","drink","academy","dynamic","gender","cleaning","concerns","vendor","officers","referred","supports","regions","junior","rings","meaning","ladies","ticket","guess","agreed","soccer","import","posting","presence","instant","viewing","majority","christ","aspects","austria","ahead","scheme","utility","preview","manner","matrix","devel","despite","strength","turkey","proper","degrees","delta","seeking","inches","shares","daughter","standing","comfort","colors","ordering","alpha","appeal","cruise","bonus","bookmark","specials","disney","smoking","becomes","drives","alabama","improved","trees","achieve","dress","dealer","nearby","carried","happen","exposure","refer","miller","outdoors","clothes","caused","luxury","babes","frames","indeed","circuit","layer","printed","removal","easier","printers","adding","kentucky","mostly","taylor","prints","spend","factory","interior","revised","optical","relative","amazing","clock","identity","suites","feeling","hidden","victoria","serial","relief","revision","ratio","planet","copies","recipe","permit","seeing","proof","tennis","bedroom","empty","instance","licensed","bureau","maine","ideal","specs","recorded","pieces","finished","parks","dinner","lawyers","sydney","stress","cream","trends","discover","patterns","boxes","hills","fourth","advisor","aware","wilson","shape","irish","stations","remains","greatest","firms","operator","generic","usage","charts","mixed","census","exist","wheel","transit","compact","poetry","lights","tracking","angel","keeping","attempt","matches","width","noise","engines","forget","array","accurate","climate","alcohol","greek","managing","sister","walking","explain","smaller","newest","happened","extent","sharp","lesbians","export","managers","aircraft","modules","sweden","conflict","versions","employer","occur","knows","describe","concern","backup","citizens","heritage","holding","trouble","spread","coach","expand","audience","assigned","affect","virgin","raised","directed","dealers","sporting","helping","affected","totally","plate","expenses","indicate","blonde","anderson","organic","albums","cheats","guests","hosted","diseases","nevada","thailand","agenda","anyway","tracks","advisory","logic","template","prince","circle","grants","anywhere","atlantic","investor","leaving","wildlife","cooking","speaking","sponsors","respond","sizes","plain","entered","launch","checking","costa","belgium","guidance","trail","symbol","crafts","highway","buddy","observed","setup","booking","glossary","fiscal","styles","filled","channels","ericsson","appendix","notify","blues","portion","scope","supplier","cables","cotton","biology","dental","killed","border","ancient","debate","starts","causes","arkansas","leisure","learned","notebook","explorer","historic","attached","opened","husband","disabled","crazy","upcoming","britain","concert","scores","comedy","adopted","weblog","linear","bears","carrier","edited","constant","mouth","jewish","meter","linked","portland","concepts","reflect","deliver","wonder","lessons","fruit","begins","reform","alerts","treated","mysql","relating","assume","alliance","confirm","neither","lewis","offline","leaves","engineer","replace","checks","reached","becoming","safari","sugar","stick","allen","relation","enabled","genre","slide","montana","tested","enhance","exact","bound","adapter","formal","hockey","storm","micro","colleges","laptops","showed","editors","threads","supreme","brothers","presents","dolls","estimate","cancel","limits","weapons","paint","delay","pilot","outlet","czech","novel","ultra","winner","idaho","episode","potter","plays","bulletin","modify","oxford","truly","epinions","painting","universe","patent","eating","planned","watching","lodge","mirror","sterling","sessions","kernel","stocks","buyers","journals","jennifer","antonio","charged","broad","taiwan","chosen","greece","swiss","sarah","clark","terminal","nights","behalf","liquid","nebraska","salary","foods","gourmet","guard","properly","orleans","saving","empire","resume","twenty","newly","raise","prepare","avatar","illegal","hundreds","lincoln","helped","premier","tomorrow","decide","consent","drama","visiting","downtown","keyboard","contest","bands","suitable","millions","lunch","audit","chamber","guinea","findings","muscle","clicking","polls","typical","tower","yours","chicken","attend","shower","sending","tonight","holdem","shell","province","catholic","governor","seemed","swimming","spyware","formula","solar","catch","pakistan","reliable","doubt","finder","unable","periods","tasks","attacks","const","doors","symptoms","resorts","biggest","memorial","visitor","forth","insert","gateway","alumni","drawing","ordered","fighting","happens","romance","split","themes","powers","heaven","pregnant","twice","focused","egypt","bargain","cellular","norway","vermont","asking","blocks","normally","hunting","diabetes","shift","bodies","cutting","simon","writers","marks","flexible","loved","mapping","numerous","birds","indexed","superior","saved","paying","cartoon","shots","moore","granted","choices","carbon","spending","magnetic","registry","crisis","outlook","massive","denmark","employed","bright","treat","header","poverty","formed","piano","sheets"];
+
+/* ---------- Kandidaten-Sonderzeichen ---------- */
+const SPECIAL_CANDIDATES = ['!','"','#','$','%','&',"'",'(',')','*','+',',','-','.','/',':',';','<','=','>','?','@','[','\\',']','^','_','`','{','|','}','~'];
+const SPECIAL_DEFAULT_EXCLUDED = ['"',"'",'`','\\'];
+
+/* Zeichen für Passphrase-Trennzeichen (bewusst kleine, gut tippbare Auswahl) */
+const SEP_CHARS = ['!','?',',','.','-','_','+','#','*','=','$','<','>'];
+
+/* Mehrdeutige Zeichen (0/O/o, 1/l/I, Pipe) */
+const AMBIGUOUS = new Set(['0','O','o','1','l','I','|']);
+
+const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const LOWER = 'abcdefghijklmnopqrstuvwxyz';
+const DIGITS = '0123456789';
+
+/* ---------- Unbiased CSPRNG Helfer ---------- */
+function randomUint32(){
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return arr[0];
+}
+// Rejection sampling -> gleichverteilte Ganzzahl in [0, max)
+function randomInt(max){
+  if(max <= 0) return 0;
+  const limit = Math.floor(0x100000000 / max) * max;
+  let x;
+  do { x = randomUint32(); } while (x >= limit);
+  return x % max;
+}
+function randomIntRange(min, max){ // inklusive min & max
+  if(max < min) max = min;
+  return min + randomInt(max - min + 1);
+}
+function pickRandom(str){
+  return str[randomInt(str.length)];
+}
+function shuffle(arr){
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = randomInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function filterAmbiguous(str){
+  return str.split('').filter(c => !AMBIGUOUS.has(c)).join('');
+}
+
+/* ---------- State ---------- */
+let activeTab = 'password';
+let currentValue = '';
+
+/* ---------- DOM refs ---------- */
+const $ = id => document.getElementById(id);
+const tabPassword = $('tabPassword'), tabPassphrase = $('tabPassphrase');
+const passwordPanel = $('passwordPanel'), passphrasePanel = $('passphrasePanel');
+const output = $('output');
+const regenBtn = $('regenBtn'), copyBtn = $('copyBtn');
+const toast = $('toast');
+const validationMsg = $('validationMsg');
+const strengthFill = $('strengthFill'), strengthLabel = $('strengthLabel');
+
+const lenRange = $('lenRange'), lenVal = $('lenVal');
+const optUpper = $('optUpper'), optLower = $('optLower'), optDigits = $('optDigits'), optSpecial = $('optSpecial');
+const specialSubPanel = $('specialSubPanel');
+const specGrid = $('specGrid');
+const specAll = $('specAll'), specNone = $('specNone'), specDefault = $('specDefault');
+const digitMinMaxPanel = $('digitMinMaxPanel'), specialMinMaxPanel = $('specialMinMaxPanel');
+const digitMin = $('digitMin'), digitMax = $('digitMax');
+const specialMin = $('specialMin'), specialMax = $('specialMax');
+const optAmbiguous = $('optAmbiguous');
+
+const wordRange = $('wordRange'), wordVal = $('wordVal');
+const sepSelect = $('sepSelect');
+const optCapitalize = $('optCapitalize'), optIncludeNumber = $('optIncludeNumber');
+
+/* ---------- Sonderzeichen-Chips aufbauen ---------- */
+let selectedSpecials = new Set(SPECIAL_CANDIDATES.filter(c => !SPECIAL_DEFAULT_EXCLUDED.includes(c)));
+
+function buildSpecialChips(){
+  specGrid.innerHTML = '';
+  SPECIAL_CANDIDATES.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip' + (selectedSpecials.has(ch) ? ' active' : '');
+    btn.textContent = ch;
+    btn.setAttribute('aria-pressed', selectedSpecials.has(ch) ? 'true' : 'false');
+    btn.addEventListener('click', () => {
+      if(selectedSpecials.has(ch)){ selectedSpecials.delete(ch); }
+      else { selectedSpecials.add(ch); }
+      btn.classList.toggle('active');
+      btn.setAttribute('aria-pressed', selectedSpecials.has(ch) ? 'true' : 'false');
+      saveSettings();
+      generate();
+    });
+    specGrid.appendChild(btn);
+  });
+}
+buildSpecialChips();
+
+specAll.addEventListener('click', () => { selectedSpecials = new Set(SPECIAL_CANDIDATES); buildSpecialChips(); saveSettings(); generate(); });
+specNone.addEventListener('click', () => { selectedSpecials = new Set(); buildSpecialChips(); saveSettings(); generate(); });
+specDefault.addEventListener('click', () => { selectedSpecials = new Set(SPECIAL_CANDIDATES.filter(c => !SPECIAL_DEFAULT_EXCLUDED.includes(c))); buildSpecialChips(); saveSettings(); generate(); });
+
+/* ---------- Trennzeichen-Select aufbauen ---------- */
+SEP_CHARS.forEach(ch => {
+  const opt = document.createElement('option');
+  opt.value = ch;
+  opt.textContent = `${ch}  (Beispiel: wort${ch}wort${ch}wort)`;
+  sepSelect.appendChild(opt);
+});
+sepSelect.value = '-';
+
+/* ---------- Tabs ---------- */
+function setTab(tab){
+  activeTab = tab;
+  tabPassword.classList.toggle('active', tab === 'password');
+  tabPassphrase.classList.toggle('active', tab === 'passphrase');
+  passwordPanel.classList.toggle('hidden', tab !== 'password');
+  passphrasePanel.classList.toggle('hidden', tab !== 'passphrase');
+  saveSettings();
+  generate();
+}
+tabPassword.addEventListener('click', () => setTab('password'));
+tabPassphrase.addEventListener('click', () => setTab('passphrase'));
+
+/* ---------- Checkbox-Optik ---------- */
+[optUpper, optLower, optDigits, optSpecial].forEach(cb => {
+  cb.addEventListener('change', () => {
+    cb.closest('.check').classList.toggle('checked', cb.checked);
+    updateSubPanelsVisibility();
+    saveSettings();
+    generate();
+  });
+});
+
+function updateSubPanelsVisibility(){
+  specialSubPanel.classList.toggle('disabled', !optSpecial.checked);
+  digitMinMaxPanel.classList.toggle('disabled', !optDigits.checked);
+  specialMinMaxPanel.classList.toggle('disabled', !optSpecial.checked);
+}
+
+/* ---------- Länge ---------- */
+lenRange.addEventListener('input', () => {
+  lenVal.textContent = lenRange.value;
+  clampMinMaxInputs();
+  saveSettings();
+  generate();
+});
+
+function clampMinMaxInputs(){
+  const len = parseInt(lenRange.value, 10);
+  [digitMin, digitMax, specialMin, specialMax].forEach(inp => inp.max = len);
+  if(parseInt(digitMax.value,10) > len) digitMax.value = len;
+  if(parseInt(specialMax.value,10) > len) specialMax.value = len;
+  if(parseInt(digitMin.value,10) > parseInt(digitMax.value,10)) digitMin.value = digitMax.value;
+  if(parseInt(specialMin.value,10) > parseInt(specialMax.value,10)) specialMin.value = specialMax.value;
+}
+
+[digitMin, digitMax, specialMin, specialMax].forEach(inp => {
+  inp.addEventListener('input', () => {
+    if(inp.value === '') return;
+    let v = parseInt(inp.value, 10);
+    if(isNaN(v) || v < 0) v = 0;
+    inp.value = v;
+    saveSettings();
+    generate();
+  });
+});
+
+optAmbiguous.addEventListener('change', () => { saveSettings(); generate(); });
+
+/* ---------- Passphrase Controls ---------- */
+wordRange.addEventListener('input', () => {
+  wordVal.textContent = wordRange.value;
+  saveSettings();
+  generate();
+});
+sepSelect.addEventListener('change', () => { saveSettings(); generate(); });
+optCapitalize.addEventListener('change', () => { saveSettings(); generate(); });
+optIncludeNumber.addEventListener('change', () => { saveSettings(); generate(); });
+
+/* ---------- Passwort-Generierung ---------- */
+function buildPool(includeAmbiguousFilter){
+  let upper = optUpper.checked ? UPPER : '';
+  let lower = optLower.checked ? LOWER : '';
+  let digits = optDigits.checked ? DIGITS : '';
+  let special = optSpecial.checked ? SPECIAL_CANDIDATES.filter(c => selectedSpecials.has(c)).join('') : '';
+
+  if(includeAmbiguousFilter){
+    upper = filterAmbiguous(upper);
+    lower = filterAmbiguous(lower);
+    digits = filterAmbiguous(digits);
+    special = filterAmbiguous(special);
+  }
+  return { upper, lower, digits, special };
+}
+
+function generatePassword(){
+  const length = parseInt(lenRange.value, 10);
+  const avoidAmbiguous = optAmbiguous.checked;
+  const pools = buildPool(avoidAmbiguous);
+  const letters = pools.upper + pools.lower;
+
+  const anyEnabled = optUpper.checked || optLower.checked || optDigits.checked || optSpecial.checked;
+  if(!anyEnabled){
+    showValidation('Bitte mindestens eine Zeichenart auswählen.');
+    return null;
+  }
+  if(optSpecial.checked && pools.special.length === 0){
+    showValidation('Bitte mindestens ein Sonderzeichen auswählen (oder „Sonderzeichen“ deaktivieren).');
+    return null;
+  }
+
+  let minD = optDigits.checked ? parseInt(digitMin.value,10) || 0 : 0;
+  let maxD = optDigits.checked ? Math.max(minD, parseInt(digitMax.value,10) || 0) : 0;
+  let minS = optSpecial.checked ? parseInt(specialMin.value,10) || 0 : 0;
+  let maxS = optSpecial.checked ? Math.max(minS, parseInt(specialMax.value,10) || 0) : 0;
+
+  minD = Math.min(minD, length);
+  minS = Math.min(minS, length);
+  maxD = Math.min(maxD, length);
+  maxS = Math.min(maxS, length);
+
+  let warn = '';
+  if(minD + minS > length){
+    const scale = length / (minD + minS);
+    minD = Math.floor(minD * scale);
+    minS = length - minD;
+    warn = 'Die Mindestwerte für Ziffern/Sonderzeichen wurden an die gewählte Länge angepasst.';
+  }
+
+  const targetD = optDigits.checked ? randomIntRange(minD, Math.min(maxD, length - minS)) : 0;
+  const targetS = optSpecial.checked ? randomIntRange(minS, Math.min(maxS, length - targetD)) : 0;
+  let remaining = length - targetD - targetS;
+
+  const chars = [];
+  for(let i=0;i<targetD;i++) chars.push({ch: pickRandom(pools.digits), type:'digit'});
+  for(let i=0;i<targetS;i++) chars.push({ch: pickRandom(pools.special), type:'special'});
+
+  if(remaining > 0){
+    let fillPool = letters;
+    let fillType = 'letter';
+    if(fillPool.length === 0){
+      // Keine Buchstaben aktiv -> Rest aus Ziffern/Sonderzeichen auffüllen (kann Max-Werte überschreiten)
+      fillPool = (pools.digits + pools.special) || pools.digits || pools.special;
+      if(fillPool.length === 0){ fillPool = letters; }
+      if(fillPool.length > 0 && !warn){
+        warn = 'Maximalwerte konnten wegen der gewählten Länge nicht exakt eingehalten werden.';
+      }
+    }
+    if(fillPool.length === 0){
+      showValidation('Mit dieser Kombination kann kein Passwort erzeugt werden.');
+      return null;
+    }
+    for(let i=0;i<remaining;i++){
+      const ch = pickRandom(fillPool);
+      let type = 'letter';
+      if(pools.digits.includes(ch) && !letters.includes(ch)) type = 'digit';
+      else if(pools.special.includes(ch) && !letters.includes(ch)) type = 'special';
+      chars.push({ch, type});
+    }
+  }
+
+  shuffle(chars);
+  if(warn) showValidation(warn); else hideValidation();
+
+  return chars;
+}
+
+/* ---------- Passphrase-Generierung ---------- */
+function generatePassphrase(){
+  const count = parseInt(wordRange.value, 10);
+  const sep = sepSelect.value;
+  const capitalize = optCapitalize.checked;
+  const includeNumber = optIncludeNumber.checked;
+
+  const words = [];
+  for(let i=0;i<count;i++){
+    let w = WORDLIST[randomInt(WORDLIST.length)];
+    if(capitalize) w = w.charAt(0).toUpperCase() + w.slice(1);
+    words.push(w);
+  }
+
+  let numberIndex = -1, numberDigit = null;
+  if(includeNumber && words.length > 0){
+    numberIndex = randomInt(words.length);
+    numberDigit = String(randomInt(10));
+    words[numberIndex] = words[numberIndex] + numberDigit;
+  }
+
+  const tokens = [];
+  words.forEach((w, i) => {
+    if(i > 0) tokens.push({ch: sep, type:'special'});
+    if(includeNumber && i === numberIndex){
+      const base = w.slice(0, w.length - numberDigit.length);
+      base.split('').forEach(c => tokens.push({ch:c, type:'letter'}));
+      tokens.push({ch:numberDigit, type:'digit'});
+    } else {
+      w.split('').forEach(c => tokens.push({ch:c, type:'letter'}));
+    }
+  });
+  return tokens;
+}
+
+/* ---------- Rendering ---------- */
+function renderTokens(tokens){
+  output.classList.remove('empty');
+  output.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  tokens.forEach(t => {
+    const span = document.createElement('span');
+    span.className = t.type === 'digit' ? 'c-digit' : (t.type === 'special' ? 'c-special' : 'c-letter');
+    span.textContent = t.ch;
+    frag.appendChild(span);
+  });
+  output.appendChild(frag);
+  currentValue = tokens.map(t => t.ch).join('');
+}
+
+function renderEmpty(){
+  output.classList.add('empty');
+  output.textContent = 'Bitte Optionen anpassen …';
+  currentValue = '';
+}
+
+/* ---------- Entropie / Stärke ---------- */
+function estimatePasswordEntropy(){
+  const avoidAmbiguous = optAmbiguous.checked;
+  const pools = buildPool(avoidAmbiguous);
+  const poolSize = new Set((pools.upper + pools.lower + pools.digits + pools.special).split('')).size;
+  const length = parseInt(lenRange.value, 10);
+  if(poolSize === 0) return 0;
+  return length * Math.log2(poolSize);
+}
+function estimatePassphraseEntropy(){
+  const count = parseInt(wordRange.value, 10);
+  let bits = count * Math.log2(WORDLIST.length);
+  if(optIncludeNumber.checked){
+    bits += Math.log2(10) + Math.log2(Math.max(count,1));
+  }
+  return bits;
+}
+function updateStrength(){
+  const bits = activeTab === 'password' ? estimatePasswordEntropy() : estimatePassphraseEntropy();
+  const pct = Math.max(4, Math.min(100, (bits / 100) * 100));
+  let color = 'var(--danger)', label = 'Schwach';
+  if(bits >= 90){ color = 'var(--success)'; label = 'Sehr stark'; }
+  else if(bits >= 65){ color = '#8be07f'; label = 'Stark'; }
+  else if(bits >= 40){ color = '#f5c542'; label = 'Mittel'; }
+  else { color = 'var(--danger)'; label = 'Schwach'; }
+  strengthFill.style.width = pct + '%';
+  strengthFill.style.background = color;
+  strengthLabel.textContent = `${label} · ~${Math.round(bits)} Bit Entropie`;
+}
+
+/* ---------- Validation UI ---------- */
+function showValidation(msg){
+  validationMsg.textContent = msg;
+  validationMsg.classList.add('show');
+}
+function hideValidation(){
+  validationMsg.classList.remove('show');
+  validationMsg.textContent = '';
+}
+
+/* ---------- Generate Orchestrator ---------- */
+function generate(){
+  let tokens;
+  if(activeTab === 'password'){
+    tokens = generatePassword();
+  } else {
+    hideValidation();
+    tokens = generatePassphrase();
+  }
+  if(!tokens){ renderEmpty(); strengthFill.style.width='0%'; strengthLabel.textContent='–'; return; }
+  renderTokens(tokens);
+  updateStrength();
+}
+
+/* ---------- Buttons ---------- */
+regenBtn.addEventListener('click', () => {
+  regenBtn.classList.remove('spin');
+  void regenBtn.offsetWidth;
+  regenBtn.classList.add('spin');
+  generate();
+});
+
+copyBtn.addEventListener('click', async () => {
+  if(!currentValue) return;
+  try {
+    await navigator.clipboard.writeText(currentValue);
+  } catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = currentValue;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  showToast('In Zwischenablage kopiert');
+  copyBtn.classList.add('copy-ok');
+  setTimeout(() => copyBtn.classList.remove('copy-ok'), 900);
+});
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 1600);
+}
+
+/* ---------- Settings Persistenz (nur Optionen, keine Passwörter) ---------- */
+function saveSettings(){
+  try {
+    const s = {
+      activeTab,
+      length: lenRange.value,
+      optUpper: optUpper.checked, optLower: optLower.checked,
+      optDigits: optDigits.checked, optSpecial: optSpecial.checked,
+      selectedSpecials: Array.from(selectedSpecials),
+      digitMin: digitMin.value, digitMax: digitMax.value,
+      specialMin: specialMin.value, specialMax: specialMax.value,
+      optAmbiguous: optAmbiguous.checked,
+      wordCount: wordRange.value, sep: sepSelect.value,
+      optCapitalize: optCapitalize.checked, optIncludeNumber: optIncludeNumber.checked
+    };
+    localStorage.setItem('pwgen-settings-v1', JSON.stringify(s));
+  } catch(e){ /* localStorage evtl. nicht verfügbar (privater Modus) */ }
+}
+
+function loadSettings(){
+  let s;
+  try { s = JSON.parse(localStorage.getItem('pwgen-settings-v1')); } catch(e){ s = null; }
+  if(!s) return;
+
+  if(s.length){ lenRange.value = s.length; lenVal.textContent = s.length; }
+  if(typeof s.optUpper === 'boolean'){ optUpper.checked = s.optUpper; }
+  if(typeof s.optLower === 'boolean'){ optLower.checked = s.optLower; }
+  if(typeof s.optDigits === 'boolean'){ optDigits.checked = s.optDigits; }
+  if(typeof s.optSpecial === 'boolean'){ optSpecial.checked = s.optSpecial; }
+  [optUpper, optLower, optDigits, optSpecial].forEach(cb => cb.closest('.check').classList.toggle('checked', cb.checked));
+
+  if(Array.isArray(s.selectedSpecials)){
+    selectedSpecials = new Set(s.selectedSpecials.filter(c => SPECIAL_CANDIDATES.includes(c)));
+    buildSpecialChips();
+  }
+  if(s.digitMin !== undefined) digitMin.value = s.digitMin;
+  if(s.digitMax !== undefined) digitMax.value = s.digitMax;
+  if(s.specialMin !== undefined) specialMin.value = s.specialMin;
+  if(s.specialMax !== undefined) specialMax.value = s.specialMax;
+  if(typeof s.optAmbiguous === 'boolean') optAmbiguous.checked = s.optAmbiguous;
+
+  if(s.wordCount){ wordRange.value = s.wordCount; wordVal.textContent = s.wordCount; }
+  if(s.sep){ sepSelect.value = s.sep; }
+  if(typeof s.optCapitalize === 'boolean') optCapitalize.checked = s.optCapitalize;
+  if(typeof s.optIncludeNumber === 'boolean') optIncludeNumber.checked = s.optIncludeNumber;
+
+  if(s.activeTab === 'passphrase' || s.activeTab === 'password') activeTab = s.activeTab;
+}
+
+/* ---------- Init ---------- */
+loadSettings();
+setTab(activeTab);
+updateSubPanelsVisibility();
+clampMinMaxInputs();
+generate();
+
+})();
+</script>
+</body>
+</html>
