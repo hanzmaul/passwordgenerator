@@ -476,6 +476,7 @@
 
 <div class="toast" id="toast">In Zwischenablage kopiert</div>
 
+<script src="config.js"></script>
 <script>
 (function(){
 "use strict";
@@ -911,6 +912,11 @@ const DEFAULT_SETTINGS = {
   optCapitalize: true, optIncludeNumber: true
 };
 
+/* Betreiber-Standardwerte aus config.js (falls vorhanden) über die eingebauten
+   Defaults legen. Gilt für jeden Besucher beim allerersten Aufruf; sobald ein
+   Browser eigene Einstellungen gespeichert hat (localStorage), haben die Vorrang. */
+const FACTORY_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, window.PWGEN_CONFIG || {});
+
 function saveSettings(){
   try {
     const s = {
@@ -954,12 +960,12 @@ function loadSettings(){
   let stored;
   try { stored = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch(e){ stored = null; }
   if(!stored) return;
-  applySettings(Object.assign({}, DEFAULT_SETTINGS, stored));
+  applySettings(Object.assign({}, FACTORY_DEFAULTS, stored));
 }
 
 function resetSettings(){
   try { localStorage.removeItem(SETTINGS_KEY); } catch(e){ /* ignore */ }
-  applySettings(DEFAULT_SETTINGS);
+  applySettings(FACTORY_DEFAULTS);
   updateSubPanelsVisibility();
   clampMinMaxInputs();
   setTab(activeTab);
@@ -968,6 +974,7 @@ function resetSettings(){
 resetSettingsBtn.addEventListener('click', resetSettings);
 
 /* ---------- Init ---------- */
+applySettings(FACTORY_DEFAULTS);
 loadSettings();
 setTab(activeTab);
 updateSubPanelsVisibility();
