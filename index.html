@@ -311,6 +311,18 @@
   footer{margin-top:22px;text-align:center;}
   footer p{color:var(--text-faint);font-size:0.76rem;line-height:1.6;margin:0;}
   footer a{color:var(--text-dim);}
+  .reset-link{
+    margin-top:10px;
+    background:transparent;
+    border:none;
+    color:var(--text-dim);
+    font-size:0.78rem;
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:pointer;
+    padding:4px;
+  }
+  .reset-link:hover{color:var(--accent-2);}
 
   @media (max-width:480px){
     .minmax{flex-direction:row;}
@@ -455,12 +467,16 @@
     <p>
       Alle Passwörter werden ausschließlich lokal in deinem Browser erzeugt (Web&nbsp;Crypto API,
       <code>crypto.getRandomValues</code>) und nirgendwo übertragen oder gespeichert.
+      Deine Optionen (nicht die Passwörter) merkt sich dieser Browser lokal via
+      <code>localStorage</code>, damit du beim nächsten Besuch weitermachen kannst, wo du aufgehört hast.
     </p>
+    <button type="button" id="resetSettingsBtn" class="reset-link">Einstellungen auf Standard zurücksetzen</button>
   </footer>
 </div>
 
 <div class="toast" id="toast">In Zwischenablage kopiert</div>
 
+<script src="config.js"></script>
 <script>
 (function(){
 "use strict";
@@ -541,6 +557,7 @@ const optAmbiguous = $('optAmbiguous');
 const wordRange = $('wordRange'), wordVal = $('wordVal');
 const sepSelect = $('sepSelect');
 const optCapitalize = $('optCapitalize'), optIncludeNumber = $('optIncludeNumber');
+const resetSettingsBtn = $('resetSettingsBtn');
 
 /* ---------- Sonderzeichen-Chips aufbauen ---------- */
 let selectedSpecials = new Set(SPECIAL_CANDIDATES.filter(c => !SPECIAL_DEFAULT_EXCLUDED.includes(c)));
@@ -881,6 +898,25 @@ function showToast(msg){
 }
 
 /* ---------- Settings Persistenz (nur Optionen, keine Passwörter) ---------- */
+const SETTINGS_KEY = 'pwgen-settings-v1';
+
+const DEFAULT_SETTINGS = {
+  activeTab: 'password',
+  length: '16',
+  optUpper: true, optLower: true, optDigits: true, optSpecial: true,
+  selectedSpecials: SPECIAL_CANDIDATES.filter(c => !SPECIAL_DEFAULT_EXCLUDED.includes(c)),
+  digitMin: '1', digitMax: '5',
+  specialMin: '1', specialMax: '5',
+  optAmbiguous: false,
+  wordCount: '4', sep: '-',
+  optCapitalize: true, optIncludeNumber: true
+};
+
+/* Betreiber-Standardwerte aus config.js (falls vorhanden) über die eingebauten
+   Defaults legen. Gilt für jeden Besucher beim allerersten Aufruf; sobald ein
+   Browser eigene Einstellungen gespeichert hat (localStorage), haben die Vorrang. */
+const FACTORY_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, window.PWGEN_CONFIG || {});
+
 function saveSettings(){
   try {
     const s = {
@@ -895,41 +931,50 @@ function saveSettings(){
       wordCount: wordRange.value, sep: sepSelect.value,
       optCapitalize: optCapitalize.checked, optIncludeNumber: optIncludeNumber.checked
     };
-    localStorage.setItem('pwgen-settings-v1', JSON.stringify(s));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
   } catch(e){ /* localStorage evtl. nicht verfügbar (privater Modus) */ }
 }
 
-function loadSettings(){
-  let s;
-  try { s = JSON.parse(localStorage.getItem('pwgen-settings-v1')); } catch(e){ s = null; }
-  if(!s) return;
-
-  if(s.length){ lenRange.value = s.length; lenVal.textContent = s.length; }
-  if(typeof s.optUpper === 'boolean'){ optUpper.checked = s.optUpper; }
-  if(typeof s.optLower === 'boolean'){ optLower.checked = s.optLower; }
-  if(typeof s.optDigits === 'boolean'){ optDigits.checked = s.optDigits; }
-  if(typeof s.optSpecial === 'boolean'){ optSpecial.checked = s.optSpecial; }
+function applySettings(s){
+  lenRange.value = s.length; lenVal.textContent = s.length;
+  optUpper.checked = s.optUpper; optLower.checked = s.optLower;
+  optDigits.checked = s.optDigits; optSpecial.checked = s.optSpecial;
   [optUpper, optLower, optDigits, optSpecial].forEach(cb => cb.closest('.check').classList.toggle('checked', cb.checked));
 
-  if(Array.isArray(s.selectedSpecials)){
-    selectedSpecials = new Set(s.selectedSpecials.filter(c => SPECIAL_CANDIDATES.includes(c)));
-    buildSpecialChips();
-  }
-  if(s.digitMin !== undefined) digitMin.value = s.digitMin;
-  if(s.digitMax !== undefined) digitMax.value = s.digitMax;
-  if(s.specialMin !== undefined) specialMin.value = s.specialMin;
-  if(s.specialMax !== undefined) specialMax.value = s.specialMax;
-  if(typeof s.optAmbiguous === 'boolean') optAmbiguous.checked = s.optAmbiguous;
+  selectedSpecials = new Set((s.selectedSpecials || []).filter(c => SPECIAL_CANDIDATES.includes(c)));
+  buildSpecialChips();
 
-  if(s.wordCount){ wordRange.value = s.wordCount; wordVal.textContent = s.wordCount; }
-  if(s.sep){ sepSelect.value = s.sep; }
-  if(typeof s.optCapitalize === 'boolean') optCapitalize.checked = s.optCapitalize;
-  if(typeof s.optIncludeNumber === 'boolean') optIncludeNumber.checked = s.optIncludeNumber;
+  digitMin.value = s.digitMin; digitMax.value = s.digitMax;
+  specialMin.value = s.specialMin; specialMax.value = s.specialMax;
+  optAmbiguous.checked = s.optAmbiguous;
 
-  if(s.activeTab === 'passphrase' || s.activeTab === 'password') activeTab = s.activeTab;
+  wordRange.value = s.wordCount; wordVal.textContent = s.wordCount;
+  sepSelect.value = s.sep;
+  optCapitalize.checked = s.optCapitalize;
+  optIncludeNumber.checked = s.optIncludeNumber;
+
+  activeTab = (s.activeTab === 'passphrase') ? 'passphrase' : 'password';
 }
 
+function loadSettings(){
+  let stored;
+  try { stored = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch(e){ stored = null; }
+  if(!stored) return;
+  applySettings(Object.assign({}, FACTORY_DEFAULTS, stored));
+}
+
+function resetSettings(){
+  try { localStorage.removeItem(SETTINGS_KEY); } catch(e){ /* ignore */ }
+  applySettings(FACTORY_DEFAULTS);
+  updateSubPanelsVisibility();
+  clampMinMaxInputs();
+  setTab(activeTab);
+  showToast('Einstellungen zurückgesetzt');
+}
+resetSettingsBtn.addEventListener('click', resetSettings);
+
 /* ---------- Init ---------- */
+applySettings(FACTORY_DEFAULTS);
 loadSettings();
 setTab(activeTab);
 updateSubPanelsVisibility();
